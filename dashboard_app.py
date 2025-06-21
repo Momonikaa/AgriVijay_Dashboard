@@ -7,19 +7,18 @@ st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 # --- Load data and clean headers ---
 @st.cache_data
 def load_data():
-    # detailed_transactions.csv loads as normal
     detailed = pd.read_csv('data/detailed_transactions.csv')
-    detailed.columns = detailed.columns.str.strip()
-    # product_sales_metrics.csv: skip extra header rows and clean columns
     sales = pd.read_csv('data/product_sales_metrics.csv', header=2)
-    sales.columns = sales.columns.str.strip()
+    detailed.columns = detailed.columns.str.strip()
+    sales.columns = sales.columns.str.strip()  # This fixes the column name issue!
     return detailed, sales
+
 
 detailed, sales = load_data()
 
 # --- Fix column types for correct calculations ---
-if 'No of Units ' in sales.columns:
-    sales['No of Units '] = pd.to_numeric(sales['No of Units '], errors='coerce')
+if 'No of Units' in sales.columns:
+    sales['No of Units'] = pd.to_numeric(sales['No of Units'], errors='coerce')
 if 'Revenue Contribution in INR' in sales.columns:
     sales['Revenue Contribution in INR'] = pd.to_numeric(sales['Revenue Contribution in INR'], errors='coerce')
 
@@ -52,7 +51,7 @@ if selected_state != "All":
 st.title("Farmer Data Dashboard")
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Revenue (₹)", f"{filtered['Invoice Amount(in Rs.)'].sum():,.0f}")
-col2.metric("Units Sold", f"{sales['No of Units'].sum():.0f}")
+col2.metric("UnitsSold", f"{sales['No of Units'].sum():.0f}")
 col3.metric("GHG Abated (Yearly, tCO2e)", f"{filtered['GHG / CO2 Emissions Abated / Year'].sum():,.2f}")
 col4.metric("Unique Customers", f"{filtered['Customer Name'].nunique()}")
 
@@ -60,14 +59,14 @@ col4.metric("Unique Customers", f"{filtered['Customer Name'].nunique()}")
 st.header("Product Sales Metrics Overview")
 
 if 'Product Name' in sales.columns and 'No of Units' in sales.columns:
-    fig_units = px.bar(
+    fig_Units= px.bar(
         sales,
         x='Product Name',
         y='No of Units',
         color='Category',
-        title='Units Sold per Product'
+        title='UnitsSold per Product'
     )
-    st.plotly_chart(fig_units, use_container_width=True)
+    st.plotly_chart(fig_Units, use_container_width=True)
 
 if 'Product Name' in sales.columns and 'Revenue Contribution in INR' in sales.columns:
     fig_revenue = px.bar(
@@ -204,5 +203,36 @@ if 'Product Category' in filtered.columns and 'GHG / CO2 Emissions Abated / Year
         title='Average GHG/CO2 Emissions Abated per Product Category'
     )
     st.plotly_chart(fig_ghg, use_container_width=True)
+
+st.header("🔎 Customer Business Records Lookup")
+
+# Get unique customer names (drop NaN and sort for usability)
+customer_names = detailed['Customer Name'].dropna().unique()
+customer_names = sorted(customer_names)
+
+# Option 1: Dropdown selection
+selected_customer = st.selectbox("Select a customer to view all their records:", customer_names)
+
+# Option 2: Text search (for partial matches, case-insensitive)
+search_text = st.text_input("Or search by customer name (partial match):", "")
+
+# Filter logic
+if search_text:
+    # Case-insensitive partial match
+    customer_records = detailed[detailed['Customer Name'].str.contains(search_text, case=False, na=False)]
+    st.write(f"Showing results for search: **{search_text}**")
+elif selected_customer:
+    customer_records = detailed[detailed['Customer Name'] == selected_customer]
+    st.write(f"Showing all records for: **{selected_customer}**")
+else:
+    customer_records = pd.DataFrame()  # Empty by default
+
+# Display results
+if not customer_records.empty:
+    st.dataframe(customer_records)
+    st.success(f"Found {len(customer_records)} record(s) for this customer.")
+else:
+    st.info("No records found for the given customer.")
+
 
 st.info("Dashboard updates automatically as new data is added to the sheets. Use the sidebar filters to drill down by year, category, or state for deeper insights.")
