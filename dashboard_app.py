@@ -7,17 +7,29 @@ st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 # --- Load data and clean headers ---
 @st.cache_data
 def load_data():
+    # detailed_transactions.csv loads as normal
     detailed = pd.read_csv('data/detailed_transactions.csv')
-    sales = pd.read_csv('data/product_sales_metrics.csv')
     detailed.columns = detailed.columns.str.strip()
+    # product_sales_metrics.csv: skip extra header rows and clean columns
+    sales = pd.read_csv('data/product_sales_metrics.csv', header=2)
     sales.columns = sales.columns.str.strip()
     return detailed, sales
 
 detailed, sales = load_data()
 
+# --- Fix column types for correct calculations ---
+if 'No of Units ' in sales.columns:
+    sales['No of Units '] = pd.to_numeric(sales['No of Units '], errors='coerce')
+if 'Revenue Contribution in INR' in sales.columns:
+    sales['Revenue Contribution in INR'] = pd.to_numeric(sales['Revenue Contribution in INR'], errors='coerce')
+
+if 'Invoice Amount(in Rs.)' in detailed.columns:
+    detailed['Invoice Amount(in Rs.)'] = pd.to_numeric(detailed['Invoice Amount(in Rs.)'], errors='coerce')
+if 'GHG / CO2 Emissions Abated / Year' in detailed.columns:
+    detailed['GHG / CO2 Emissions Abated / Year'] = pd.to_numeric(detailed['GHG / CO2 Emissions Abated / Year'], errors='coerce')
+
 # --- Sidebar Filters ---
 st.sidebar.header("Filters")
-# Parse dates and years
 detailed['Date'] = pd.to_datetime(detailed['Date'], errors='coerce')
 detailed['Year'] = detailed['Date'].dt.year
 years = sorted(detailed['Year'].dropna().unique())
@@ -40,7 +52,7 @@ if selected_state != "All":
 st.title("Farmer Data Dashboard")
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Revenue (₹)", f"{filtered['Invoice Amount(in Rs.)'].sum():,.0f}")
-col2.metric("Units Sold", f"{sales['No of Units '].sum()}")
+col2.metric("Units Sold", f"{sales['No of Units'].sum():.0f}")
 col3.metric("GHG Abated (Yearly, tCO2e)", f"{filtered['GHG / CO2 Emissions Abated / Year'].sum():,.2f}")
 col4.metric("Unique Customers", f"{filtered['Customer Name'].nunique()}")
 
@@ -51,7 +63,7 @@ if 'Product Name' in sales.columns and 'No of Units' in sales.columns:
     fig_units = px.bar(
         sales,
         x='Product Name',
-        y='No of Units ',
+        y='No of Units',
         color='Category',
         title='Units Sold per Product'
     )
