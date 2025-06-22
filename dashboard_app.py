@@ -4,6 +4,46 @@ import plotly.express as px
 
 st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 
+# --- Load users from user.txt ---
+def load_users(file_path='users.txt'):
+    users = {}
+    with open(file_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line and ',' in line:
+                username, password = line.split(',', 1)
+                users[username.strip()] = password.strip()
+    return users
+
+users = load_users()
+
+# --- Simple login form ---
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ''
+
+if not st.session_state.logged_in:
+    st.title("Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if username in users and users[username] == password:
+            st.session_state.logged_in = True
+            st.session_state.username = username
+            st.success(f"Welcome, {username}!")
+            st.rerun()
+        else:
+            st.error("Invalid username or password.")
+    st.stop()
+else:
+    st.sidebar.success(f"Logged in as: {st.session_state.username}")
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.username = ''
+        st.rerun()
+
+# st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
+
 # --- Load data and clean headers ---
 @st.cache_data
 def load_data():
