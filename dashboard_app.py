@@ -16,7 +16,7 @@ if user is None or not user.get("email", "").endswith("@agrivijay.com"):
 st.success(f"Welcome, {user['email']}!")
 
 
-# st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
+st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 
 # --- Load data and clean headers ---
 @st.cache_data
