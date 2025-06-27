@@ -1,46 +1,20 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
 
 st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 
-# --- Load users from user.txt ---
-def load_users(file_path='users.txt'):
-    users = {}
-    with open(file_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if line and ',' in line:
-                username, password = line.split(',', 1)
-                users[username.strip()] = password.strip()
-    return users
+user = st.experimental_user
 
-users = load_users()
-
-# --- Simple login form ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.username = ''
-
-if not st.session_state.logged_in:
-    st.title("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username in users and users[username] == password:
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            st.success(f"Welcome, {username}!")
-            st.rerun()
-        else:
-            st.error("Invalid username or password.")
+if user is None or not user.get("email", "").endswith("@agrivijay.com"):
+    st.error("Access restricted: Only AgriVijay users with @agrivijay.com email can view this dashboard.")
     st.stop()
-else:
-    st.sidebar.success(f"Logged in as: {st.session_state.username}")
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.username = ''
-        st.rerun()
+
+st.success(f"Welcome, {user['email']}!")
+
 
 # st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 

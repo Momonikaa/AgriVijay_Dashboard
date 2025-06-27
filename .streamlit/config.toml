@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#4CAF50"            # Green accent, change as you like
+backgroundColor = "#F8FAFB"         # Very light gray
+secondaryBackgroundColor = "#FFFFFF" # Sidebar and widgets
+textColor = "#22223B"               # Dark blue/gray for good contrast
+font = "sans serif"
