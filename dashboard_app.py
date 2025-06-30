@@ -5,7 +5,6 @@ import glob
 import hashlib
 import sqlite3
 import re
-from datetime import datetime
 
 # --- User Authentication Functions ---
 def make_hashes(password):
