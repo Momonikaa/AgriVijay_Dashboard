@@ -6,31 +6,17 @@ import glob
 
 st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 
-def check_login():
-    try:
-        with open("users.txt") as f:
-            users = dict(line.strip().split(",", 1) for line in f if "," in line)
-    except Exception:
-        st.error("Could not read users.txt file.")
-        st.stop()
+def check_login(username, password):
+    users = st.secrets["credentials"]
+    return users.get(username) == password
 
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
-
-    if not st.session_state.logged_in:
-        st.title("🔒 Login Required")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if username in users and users[username] == password:
-                st.session_state.logged_in = True
-                st.success("Login successful!")
-            else:
-                st.error("Invalid username or password.")
-        st.stop()
-
-check_login()
-
+username = st.text_input("Username")
+password = st.text_input("Password", type="password")
+if st.button("Login"):
+    if check_login(username, password):
+        st.success("Login successful!")
+    else:
+        st.error("Invalid credentials")
 
 # --- Load farmer data ---
 @st.cache_data
