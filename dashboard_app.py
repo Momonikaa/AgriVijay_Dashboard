@@ -3,19 +3,23 @@ import pandas as pd
 import plotly.express as px
 import glob
 
+# 1. Page config must be first!
 st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 
-if not st.user.is_logged_in:
-    st.login("google")  # or "microsoft", "auth0", etc. as per your config
+# Only call st.login("google") on Streamlit Cloud
+try:
+    st.login("google")
+except Exception:
+    pass  # If running locally, ignore
+
+if not hasattr(st.user, "is_logged_in") or not st.user.is_logged_in:
     st.stop()
 
-# Optional: restrict by domain
-if not st.user.email.endswith("@agrivijay.com"):
+if not getattr(st.user, "email", "").endswith("@agrivijay.com"):
     st.error("Access restricted: Only AgriVijay users with @agrivijay.com email can view this dashboard.")
     st.stop()
 
-st.success(f"Welcome, {st.user.email}!")
-
+st.success(f"Welcome, {getattr(st.user, 'email', 'user')}!")
 
 # --- Load farmer data ---
 @st.cache_data
