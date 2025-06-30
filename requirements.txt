@@ -4,5 +4,3 @@ PyYAML
 pandas
 plotly
 Authlib
-sqlite3
-re
