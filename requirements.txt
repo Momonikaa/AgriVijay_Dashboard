@@ -3,3 +3,5 @@ streamlit-authenticator
 PyYAML
 pandas
 plotly
+glob
+Authlib
