@@ -6,15 +6,31 @@ import glob
 
 st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 
-if not getattr(st.user, "is_logged_in", False):
-    st.login()
-    st.stop()
+def check_login():
+    try:
+        with open("users.txt") as f:
+            users = dict(line.strip().split(",", 1) for line in f if "," in line)
+    except Exception:
+        st.error("Could not read users.txt file.")
+        st.stop()
 
-if not st.user.email.endswith("@agrivijay.com"):
-    st.error("Access restricted: Only AgriVijay users with @agrivijay.com email can view this dashboard.")
-    st.stop()
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
 
-st.success(f"Welcome, {st.user.email}!")
+    if not st.session_state.logged_in:
+        st.title("🔒 Login Required")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            if username in users and users[username] == password:
+                st.session_state.logged_in = True
+                st.success("Login successful!")
+                # st.experimental_rerun()
+            else:
+                st.error("Invalid username or password.")
+        st.stop()
+
+check_login()
 
 
 # --- Load farmer data ---
