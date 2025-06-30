@@ -7,7 +7,7 @@ import glob
 st.set_page_config(page_title="Farmer Data Dashboard", layout="wide")
 
 if not getattr(st.user, "is_logged_in", False):
-    st.login("google")
+    st.login()
     st.stop()
 
 if not st.user.email.endswith("@agrivijay.com"):
