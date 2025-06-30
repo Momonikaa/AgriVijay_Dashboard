@@ -13,6 +13,7 @@ except Exception:
     pass  # If running locally, ignore
 
 if not hasattr(st.user, "is_logged_in") or not st.user.is_logged_in:
+    st.write("Checking authentication...")
     st.stop()
 
 if not getattr(st.user, "email", "").endswith("@agrivijay.com"):
