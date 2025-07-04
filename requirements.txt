@@ -4,3 +4,4 @@ PyYAML
 pandas
 plotly
 Authlib
+openpyxl
