@@ -206,7 +206,7 @@ def main_dashboard():
     # --- Load farmer data ---
     section = st.sidebar.radio(
         "Select Section",
-        ["Farmer Data", "Franchise/Partner", "Purchase Tracker"]
+        ["Farmer Data", "Franchise/Partner", "Purchase Tracker","Invoice Tracker"]
     )
 
     @st.cache_data
@@ -537,7 +537,7 @@ def main_dashboard():
 
     if df.empty:
         st.stop()
-        
+
     if section == "Franchise/Partner":
         # Display data info
         st.sidebar.info(f"📊 Total Records: {len(df)}")
@@ -818,6 +818,12 @@ def main_dashboard():
         all_columns = sorted(set(col for df in dfs for col in df.columns))
         dfs = [df.reindex(columns=all_columns) for df in dfs]
         master_df = pd.concat(dfs, ignore_index=True)
+        for col in master_df.columns:
+            if "Date" in col or "date" in col:
+                master_df[col] = pd.to_datetime(master_df[col], errors="coerce")
+        # Convert all object columns to string (avoids Arrow serialization issues)
+        for col in master_df.select_dtypes(include=['object']).columns:
+            master_df[col] = master_df[col].astype(str)
         return master_df
 
     purchase_df = load_purchase_tracker()
@@ -943,6 +949,154 @@ def main_dashboard():
         st.dataframe(filtered)
         csv = filtered.to_csv(index=False)
         st.download_button("Download CSV", data=csv, file_name="filtered_purchase_data.csv", mime="text/csv")
+
+    # Invoice tracker
+    if section == "Invoice Tracker":
+        st.header("📄 Sales Invoices Overview")
+
+        # --- Load and Clean Invoice Data ---
+        @st.cache_data
+        def load_invoice_data():
+            excel_file = 'data/AV Sales Invoices Master Tracker - Accounts Department.xlsx'
+            all_sheets = pd.read_excel(excel_file, sheet_name=None)
+            def clean_columns(df):
+                df.columns = (
+                    df.columns.str.strip()
+                    .str.replace('\n', ' ')
+                    .str.replace('  ', ' ')
+                    .str.replace(' ', '_')
+                )
+                return df
+            dfs = [clean_columns(df) for df in all_sheets.values()]
+            all_columns = sorted(set(col for df in dfs for col in df.columns))
+            dfs = [df.reindex(columns=all_columns) for df in dfs]
+            invoice_df = pd.concat(dfs, ignore_index=True)
+
+            # Convert dates
+            for col in invoice_df.columns:
+                if "Date" in col or "date" in col:
+                    invoice_df[col] = pd.to_datetime(invoice_df[col], errors="coerce")
+            # Convert numerics
+            for col in invoice_df.columns:
+                if "Amt" in col or "MRP" in col or "Price" in col or "GST" in col or "Discount" in col:
+                    invoice_df[col] = pd.to_numeric(invoice_df[col], errors="coerce")
+            # Clean Invoice No.
+            if "Invoice_No" in invoice_df.columns:
+                invoice_df["Invoice_No"] = invoice_df["Invoice_No"].astype(str).str.strip()
+            
+            if "Customer_Name" in invoice_df.columns:
+                    invoice_df["Customer_Name"] = invoice_df["Customer_Name"].astype(str).str.strip()
+            return invoice_df
+
+        invoice_df = load_invoice_data()
+
+        # --- Sidebar Filters ---
+        st.sidebar.header("Invoice Filters")
+        years = sorted(invoice_df['Invoice_Date'].dt.year.dropna().unique()) if 'Invoice_Date' in invoice_df.columns else []
+        selected_year = st.sidebar.selectbox("Invoice Year", options=["All"] + years, index=0)
+
+        states = sorted(invoice_df['State/Branch'].dropna().unique()) if 'State/Branch' in invoice_df.columns else []
+        selected_state = st.sidebar.selectbox("State/Branch", options=["All"] + states, index=0)
+
+        products = sorted(invoice_df['Product/AVRES'].dropna().unique()) if 'Product/AVRES' in invoice_df.columns else []
+        selected_product = st.sidebar.selectbox("Product", options=["All"] + products, index=0)
+
+        payment_statuses = sorted(invoice_df['PAID_/_PENDING'].dropna().unique()) if 'PAID_/_PENDING' in invoice_df.columns else []
+        selected_status = st.sidebar.selectbox("Payment Status", options=["All"] + payment_statuses, index=0)
+
+        # --- Customer Name Searchable Dropdown ---
+        all_customers = sorted(invoice_df['Customer_Name'].dropna().unique())
+        customer_search = st.sidebar.text_input("Search Customer Name (type to filter):", "")
+        filtered_customers = [c for c in all_customers if customer_search.lower() in c.lower()]
+        selected_customer = st.sidebar.selectbox(
+            "Select Customer Name", 
+            options=["All"] + filtered_customers, 
+            index=0 if customer_search == "" else min(1, len(filtered_customers))
+        )
+
+        # --- Invoice No Searchable Dropdown ---
+        all_invoices = sorted(invoice_df['Invoice_No'].dropna().astype(str).unique())
+        invoice_search = st.sidebar.text_input("Search Invoice No. (type to filter):", "")
+        filtered_invoices = [i for i in all_invoices if invoice_search.lower() in i.lower()]
+        selected_invoice = st.sidebar.selectbox(
+            "Select Invoice No.", 
+            options=["All"] + filtered_invoices, 
+            index=0 if invoice_search == "" else min(1, len(filtered_invoices))
+        )
+        # --- Apply Filters ---
+        filtered_inv = invoice_df.copy()
+        if selected_year != "All" and 'Invoice_Date' in filtered_inv.columns:
+            filtered_inv = filtered_inv[filtered_inv['Invoice_Date'].dt.year == selected_year]
+        if selected_state != "All":
+            filtered_inv = filtered_inv[filtered_inv['State/Branch'] == selected_state]
+        if selected_product != "All":
+            filtered_inv = filtered_inv[filtered_inv['Product/AVRES'] == selected_product]
+        if selected_status != "All":
+            filtered_inv = filtered_inv[filtered_inv['PAID_/_PENDING'] == selected_status]
+        if selected_invoice != "All":
+            filtered_inv = filtered_inv[filtered_inv['Invoice_No'].str.contains(selected_invoice, case=False, na=False)]
+        if selected_customer != "All":
+            filtered_inv = filtered_inv[filtered_inv['Customer_Name'].str.contains(selected_customer, case=False, na=False)]
+
+        # --- KPIs ---
+        st.header("📄 Invoice Analytics Dashboard")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Invoices", len(filtered_inv))
+        if 'Final_Price_(in_Rs.)' in filtered_inv.columns:
+            col2.metric("Total Invoice Value (₹)", f"{filtered_inv['Final_Price_(in_Rs.)'].sum():,.0f}")
+        if 'Collected_Amt' in filtered_inv.columns:
+            col3.metric("Collected Amount (₹)", f"{filtered_inv['Collected_Amt'].sum():,.0f}")
+        if 'Remaining_Amt' in filtered_inv.columns:
+            col4.metric("Remaining Amount (₹)", f"{filtered_inv['Remaining_Amt'].sum():,.0f}")
+
+        # --- Pie Chart: Payment Status ---
+        if 'PAID_/_PENDING' in filtered_inv.columns:
+            status_counts = filtered_inv['PAID_/_PENDING'].value_counts().reset_index()
+            status_counts.columns = ['Status', 'Count']
+            fig_status = px.pie(status_counts, names='Status', values='Count', title='Payment Status Distribution')
+            st.plotly_chart(fig_status, use_container_width=True)
+
+        # --- Pie Chart: State-wise Invoice Share ---
+        if 'State/Branch' in filtered_inv.columns:
+            state_pie = filtered_inv['State/Branch'].value_counts().reset_index()
+            state_pie.columns = ['State', 'Count']
+            fig_state_pie = px.pie(state_pie, names='State', values='Count', title='State-wise Invoice Share')
+            st.plotly_chart(fig_state_pie, use_container_width=True)
+
+        # --- Histogram: Invoice Amount Distribution ---
+        if 'Final_Price_(in_Rs.)' in filtered_inv.columns:
+            fig_hist = px.histogram(filtered_inv, x='Final_Price_(in_Rs.)', nbins=30, title='Invoice Amount Distribution')
+            st.plotly_chart(fig_hist, use_container_width=True)
+
+        # --- Bar Chart: Top Products by Invoice Value ---
+        if 'Product/AVRES' in filtered_inv.columns and 'Final_Price_(in_Rs.)' in filtered_inv.columns:
+            top_products = filtered_inv.groupby('Product/AVRES')['Final_Price_(in_Rs.)'].sum().sort_values(ascending=False).head(10).reset_index()
+            fig_prod = px.bar(top_products, x='Product/AVRES', y='Final_Price_(in_Rs.)', title='Top 10 Products by Invoice Value')
+            st.plotly_chart(fig_prod, use_container_width=True)
+
+        # --- Time Series: Monthly Invoice Value Trend ---
+        if 'Invoice_Date' in filtered_inv.columns and 'Final_Price_(in_Rs.)' in filtered_inv.columns:
+            monthly = filtered_inv.groupby(filtered_inv['Invoice_Date'].dt.to_period('M'))['Final_Price_(in_Rs.)'].sum().reset_index()
+            monthly['Invoice_Date'] = monthly['Invoice_Date'].astype(str)
+            fig_trend = px.line(monthly, x='Invoice_Date', y='Final_Price_(in_Rs.)', title='Monthly Invoice Value Trend')
+            st.plotly_chart(fig_trend, use_container_width=True)
+
+        # --- Invoice No. Search Results Table ---
+        if selected_invoice:
+            st.success(f"Found {len(filtered_inv)} invoices matching '{selected_invoice}'.")
+
+        # --- Show Filtered Data Table ---
+        st.subheader("Filtered Invoice Data")
+        st.dataframe(filtered_inv, use_container_width=True, height=400)
+        csv = filtered_inv.to_csv(index=False)
+        st.download_button(
+            label="Download Filtered Invoice Data as CSV",
+            data=csv,
+            file_name=f"filtered_invoices_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv"
+        )
+
+
 
 
 # --- Main App Flow ---
