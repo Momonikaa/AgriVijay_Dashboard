@@ -5,6 +5,8 @@ import glob
 import hashlib
 import sqlite3
 import re
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # --- User Authentication Functions ---
 def make_hashes(password):
@@ -206,7 +208,7 @@ def main_dashboard():
     # --- Load farmer data ---
     section = st.sidebar.radio(
         "Select Section",
-        ["Farmer Data", "Franchise/Partner", "Purchase Tracker","Invoice Tracker"]
+        ["Farmer Data", "Franchise/Partner", "Purchase Tracker","Invoice Tracker","Impact Data"]
     )
 
     @st.cache_data
@@ -1095,8 +1097,162 @@ def main_dashboard():
             file_name=f"filtered_invoices_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv"
         )
+    @st.cache_data
+    def load_impact_data():
+        excel_file = 'data/AgriVijay Impact Data FY20-25.xlsx'
+        all_sheets = pd.read_excel(excel_file, sheet_name=None)
+        
+        def clean_columns(df):
+            df.columns = (
+                df.columns.str.strip()
+                .str.replace('\n', ' ')
+                .str.replace('  ', ' ')
+                .str.replace(' ', '_')
+            )
+            return df
 
+        dfs = [clean_columns(df) for df in all_sheets.values()]
+        all_columns = sorted(set(col for df in dfs for col in df.columns))
+        dfs = [df.reindex(columns=all_columns) for df in dfs]
+        impact_df = pd.concat(dfs, ignore_index=True)
 
+        # Convert date columns
+        for col in impact_df.columns:
+            if "Date" in col or "date" in col or "Month" in col or "Year" in col:
+                impact_df[col] = pd.to_datetime(impact_df[col], errors="coerce")
+        # Convert all object columns to string (Arrow compatibility)
+        for col in impact_df.select_dtypes(include=['object']).columns:
+            impact_df[col] = impact_df[col].astype(str)
+        return impact_df
+
+    impact_df = load_impact_data()
+
+    if section == "Impact Data":
+        st.title("AgriVijay Impact Data Dashboard")
+        st.sidebar.markdown("### Impact Data Filters")
+
+        st.sidebar.header("Impact Data Filters")
+
+        years = sorted(impact_df['Invoice_Year'].dropna().unique())
+        selected_year = st.sidebar.selectbox("Year", options=["All"] + years, index=0)
+
+        states = sorted(impact_df['State'].dropna().unique())
+        selected_state = st.sidebar.selectbox("State", options=["All"] + states, index=0)
+
+        products = sorted(impact_df['Product/AVRES'].dropna().unique())
+        selected_product = st.sidebar.selectbox("Product", options=["All"] + products, index=0)
+
+        categories = sorted(impact_df['Product_Category'].dropna().unique())
+        selected_category = st.sidebar.selectbox("Product Category", options=["All"] + categories, index=0)
+
+        customer_search = st.sidebar.text_input("Search Customer Name (type to filter):", "")
+        customer_options = [c for c in sorted(impact_df['Customer_Name'].dropna().unique()) if customer_search.lower() in c.lower()]
+        selected_customer = st.sidebar.selectbox("Select Customer", options=["All"] + customer_options, index=0)
+
+        districts = sorted(impact_df['District'].dropna().unique())
+        selected_district = st.sidebar.selectbox("District", options=["All"] + districts, index=0)
+
+        # Numeric range sliders (if applicable)
+        if 'Total_Increased_Savings_&_Income(in_Rs.)' in impact_df.columns:
+            min_inc, max_inc = impact_df['Total_Increased_Savings_&_Income(in_Rs.)'].min(), impact_df['Total_Increased_Savings_&_Income(in_Rs.)'].max()
+            income_range = st.sidebar.slider("Savings/Income Range (₹)", min_value=float(min_inc), max_value=float(max_inc), value=(float(min_inc), float(max_inc)))
+        else:
+            income_range = None
+
+        filtered = impact_df.copy()
+        if selected_year != "All":
+            filtered = filtered[filtered['Invoice_Year'] == selected_year]
+        if selected_state != "All":
+            filtered = filtered[filtered['State'] == selected_state]
+        if selected_product != "All":
+            filtered = filtered[filtered['Product/AVRES'] == selected_product]
+        if selected_category != "All":
+            filtered = filtered[filtered['Product_Category'] == selected_category]
+        if selected_customer != "All":
+            filtered = filtered[filtered['Customer_Name'] == selected_customer]
+        if selected_district != "All":
+            filtered = filtered[filtered['District'] == selected_district]
+        if income_range:
+            filtered = filtered[(filtered['Total_Increased_Savings_&_Income(in_Rs.)'] >= income_range[0]) & (filtered['Total_Increased_Savings_&_Income(in_Rs.)'] <= income_range[1])]
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("Total Records", len(filtered))
+        col2.metric("Unique Customers", filtered['Customer_Name'].nunique())
+        col3.metric("Unique Products", filtered['Product/AVRES'].nunique())
+        col4.metric("States Covered", filtered['State'].nunique())
+        col5.metric("Total GHG/CO2 Abated (t)", f"{filtered['Tons_of_GHG/_CO2_Emisions_abated'].sum():,.2f}")
+
+        if 'Invoice_Month' in filtered.columns and 'Kwh_produced_YTD' in filtered.columns:
+            monthly_energy = filtered.groupby(filtered['Invoice_Month'].dt.to_period('M'))['Kwh_produced_YTD'].sum().reset_index()
+            monthly_energy['Invoice_Month'] = monthly_energy['Invoice_Month'].astype(str)
+            fig_energy = px.line(monthly_energy, x='Invoice_Month', y='Kwh_produced_YTD', title='Monthly Clean Energy Produced (KWh)')
+            st.plotly_chart(fig_energy, use_container_width=True)
+
+        # Impact by State
+        if 'State' in filtered.columns:
+            state_counts = filtered['State'].value_counts().reset_index()
+            state_counts.columns = ['State', 'Count']
+            fig_state = px.bar(state_counts, x='State', y='Count', title='Records by State')
+            st.plotly_chart(fig_state, use_container_width=True)
+
+        # Product Category Distribution
+        if 'Product_Category' in filtered.columns:
+            cat_counts = filtered['Product_Category'].value_counts().reset_index()
+            cat_counts.columns = ['Product_Category', 'Count']
+            fig_cat = px.pie(cat_counts, names='Product_Category', values='Count', title='Product Category Share')
+            st.plotly_chart(fig_cat, use_container_width=True)
+
+        # Top 10 Customers by Savings
+        if 'Customer_Name' in filtered.columns and 'Total_Increased_Savings_&_Income(in_Rs.)' in filtered.columns:
+            top_cust = filtered.groupby('Customer_Name')['Total_Increased_Savings_&_Income(in_Rs.)'].sum().sort_values(ascending=False).head(10).reset_index()
+            fig_top_cust = px.bar(top_cust, x='Customer_Name', y='Total_Increased_Savings_&_Income(in_Rs.)', title='Top 10 Customers by Savings')
+            st.plotly_chart(fig_top_cust, use_container_width=True)
+
+        # GHG/CO2 Emissions Abated by Product
+        if 'Product/AVRES' in filtered.columns and 'Tons_of_GHG/_CO2_Emisions_abated' in filtered.columns:
+            ghg_by_prod = filtered.groupby('Product/AVRES')['Tons_of_GHG/_CO2_Emisions_abated'].sum().sort_values(ascending=False).head(10).reset_index()
+            fig_ghg_prod = px.bar(ghg_by_prod, x='Product/AVRES', y='Tons_of_GHG/_CO2_Emisions_abated', title='Top 10 Products by GHG Abated')
+            st.plotly_chart(fig_ghg_prod, use_container_width=True)
+
+        # Cumulative GHG Abated Over Time
+        if 'Invoice_Month' in filtered.columns and 'Tons_of_GHG/_CO2_Emisions_abated' in filtered.columns:
+            cum_ghg = filtered.groupby(filtered['Invoice_Month'].dt.to_period('M'))['Tons_of_GHG/_CO2_Emisions_abated'].sum().cumsum().reset_index()
+            cum_ghg['Invoice_Month'] = cum_ghg['Invoice_Month'].astype(str)
+            fig_cum_ghg = px.line(cum_ghg, x='Invoice_Month', y='Tons_of_GHG/_CO2_Emisions_abated', title='Cumulative GHG Abated Over Time')
+            st.plotly_chart(fig_cum_ghg, use_container_width=True)
+
+        st.subheader("Filtered Impact Data")
+        st.dataframe(filtered, use_container_width=True, height=500)
+        csv = filtered.to_csv(index=False)
+        st.download_button("Download CSV", data=csv, file_name="filtered_impact_data.csv", mime="text/csv")
+
+        num_cols = filtered.select_dtypes(include='number').columns
+        if len(num_cols) > 1:
+            corr = filtered[num_cols].corr()
+            fig_corr, ax = plt.subplots(figsize=(10, 6))
+            sns.heatmap(corr, annot=True, cmap="Blues", ax=ax)
+            st.pyplot(fig_corr)
+
+        search_keywords = st.text_input("Global Search (keywords, comma-separated):", "")
+        if search_keywords:
+            keywords = [k.strip().lower() for k in search_keywords.split(",")]
+            mask = filtered.apply(lambda row: all(any(k in str(cell).lower() for cell in row) for k in keywords), axis=1)
+            filtered = filtered[mask]
+            st.info(f"Found {len(filtered)} records matching all keywords.")
+
+        st.markdown("### Impact Summaries")
+        impact_summaries = {
+            "Total Clean Energy Produced (KWh)": filtered['Kwh_produced_YTD'].sum() if 'Kwh_produced_YTD' in filtered.columns else "N/A",
+            "Total Waste Treated (kg)": filtered['Total_Waste_Treated_(in_kgs)'].sum() if 'Total_Waste_Treated_(in_kgs)' in filtered.columns else "N/A",
+            "Total Bio-slurry Produced (L)": filtered['Litres_of_Bioslurry_produced'].sum() if 'Litres_of_Bioslurry_produced' in filtered.columns else "N/A",
+            "Total Post Harvest Losses Mitigated (kg)": filtered['Post_Harvest_Losses_Mitigated_(in_kgs)'].sum() if 'Post_Harvest_Losses_Mitigated_(in_kgs)' in filtered.columns else "N/A",
+            "Total Firewood Saved": filtered['Firewood_Saved'].sum() if 'Firewood_Saved' in filtered.columns else "N/A",
+            "Total Land Irrigated (Acres)": filtered['Total_Acres_of_Land_Irrigated_through_Solar'].sum() if 'Total_Acres_of_Land_Irrigated_through_Solar' in filtered.columns else "N/A",
+            "Total Women Impacted": filtered['Total_Women_Impacted'].sum() if 'Total_Women_Impacted' in filtered.columns else "N/A",
+            "Total Green Jobs Created": filtered['Total_Green_Jobs_Created'].sum() if 'Total_Green_Jobs_Created' in filtered.columns else "N/A",
+        }
+        for k, v in impact_summaries.items():
+            st.write(f"- **{k}:** {v}")
 
 
 # --- Main App Flow ---

@@ -5,3 +5,5 @@ pandas
 plotly
 Authlib
 openpyxl
+seaborn
+matplotlib
