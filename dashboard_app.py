@@ -1241,18 +1241,25 @@ def main_dashboard():
             st.info(f"Found {len(filtered)} records matching all keywords.")
 
         st.markdown("### Impact Summaries")
+
         impact_summaries = {
-            "Total Clean Energy Produced (KWh)": filtered['Kwh_produced_YTD'].sum() if 'Kwh_produced_YTD' in filtered.columns else "N/A",
-            "Total Waste Treated (kg)": filtered['Total_Waste_Treated_(in_kgs)'].sum() if 'Total_Waste_Treated_(in_kgs)' in filtered.columns else "N/A",
-            "Total Bio-slurry Produced (L)": filtered['Litres_of_Bioslurry_produced'].sum() if 'Litres_of_Bioslurry_produced' in filtered.columns else "N/A",
-            "Total Post Harvest Losses Mitigated (kg)": filtered['Post_Harvest_Losses_Mitigated_(in_kgs)'].sum() if 'Post_Harvest_Losses_Mitigated_(in_kgs)' in filtered.columns else "N/A",
-            "Total Firewood Saved": filtered['Firewood_Saved'].sum() if 'Firewood_Saved' in filtered.columns else "N/A",
-            "Total Land Irrigated (Acres)": filtered['Total_Acres_of_Land_Irrigated_through_Solar'].sum() if 'Total_Acres_of_Land_Irrigated_through_Solar' in filtered.columns else "N/A",
-            "Total Women Impacted": filtered['Total_Women_Impacted'].sum() if 'Total_Women_Impacted' in filtered.columns else "N/A",
-            "Total Green Jobs Created": filtered['Total_Green_Jobs_Created'].sum() if 'Total_Green_Jobs_Created' in filtered.columns else "N/A",
+            # Exactly as per your Excel column names on "Impact Data FY20-25" sheet
+            "Total Clean Energy Produced (KWh)": impact_df['Kwh produced YTD'].sum(skipna=True) if 'Kwh produced YTD' in impact_df.columns else "N/A",
+            "Total Waste Treated (kg)": impact_df['Total Waste Treated (in kgs)'].sum(skipna=True) if 'Total Waste Treated (in kgs)' in impact_df.columns else "N/A",
+            "Total Bio-slurry Produced (L)": impact_df['Litres of Bioslurry produced'].sum(skipna=True) if 'Litres of Bioslurry produced' in impact_df.columns else "N/A",
+            "Total Post Harvest Losses Mitigated (kg)": impact_df['Post Harvest Losses Mitigated (in kgs)'].sum(skipna=True) if 'Post Harvest Losses Mitigated (in kgs)' in impact_df.columns else "N/A",
+            "Total Increased Savings (₹)": impact_df['Total Increased Savings & Income(in Rs.)'].sum(skipna=True) if 'Total Increased Savings & Income(in Rs.)' in impact_df.columns else "N/A",
+            "Total Land Irrigated (Acres)": impact_df['Total Acres of Land Irrigated through Solar'].sum(skipna=True) if 'Total Acres of Land Irrigated through Solar' in impact_df.columns else "N/A",
+            "No of Renewable & Green Energy Products Recommended & Installed": impact_df['No of Renewable & Green Energy Products Recommended & Installed'].sum(skipna=True) if 'No of Renewable & Green Energy Products Recommended & Installed' in impact_df.columns else "N/A",
+            "No of Lives Impacted": impact_df['No of Lives Impacted'].sum(skipna=True) if 'No of Lives Impacted' in impact_df.columns else "N/A",
+            "Tonnes of GHG/ CO2 Emissions abated": impact_df['Tons of GHG/ CO2 Emisions abated'].sum(skipna=True) if 'Tons of GHG/ CO2 Emisions abated' in impact_df.columns else "N/A",
+            "Firewood Saved": impact_df['Firewood Saved'].sum(skipna=True) if 'Firewood Saved' in impact_df.columns else "N/A",
+            "Total Women Impacted": impact_df['Total Women Impacted'].sum(skipna=True) if 'Total Women Impacted' in impact_df.columns else "N/A",
+            "Total Green Jobs Created": impact_df['Total Green Jobs Created'].sum(skipna=True) if 'Total Green Jobs Created' in impact_df.columns else "N/A",
         }
+
         for k, v in impact_summaries.items():
-            st.write(f"- **{k}:** {v}")
+            st.write(f"- **{k}:** {int(v) if isinstance(v, (int, float)) and not pd.isna(v) else v}")
 
 
 # --- Main App Flow ---
