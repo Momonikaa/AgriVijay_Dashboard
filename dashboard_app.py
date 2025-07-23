@@ -1240,11 +1240,11 @@ def main_dashboard():
             filtered = filtered[mask]
             st.info(f"Found {len(filtered)} records matching all keywords.")
 
-        # Only consider real data rows (exclude footer/summaries)
+            
+        # Only consider actual data rows: filter for rows where "S. No." is a number
         data_rows = impact_df[pd.to_numeric(impact_df['S. No.'], errors='coerce').notnull()]
 
         impact_summaries = {
-            # Exact column names as per your sheet and summary logic
             "Clean Energy Produced": data_rows['Kwh produced YTD'].sum(skipna=True) if 'Kwh produced YTD' in data_rows.columns else "N/A",
             "Total Waste Treated": data_rows['Total Waste Treated (in kgs)'].sum(skipna=True) if 'Total Waste Treated (in kgs)' in data_rows.columns else "N/A",
             "Bio - Slurry": data_rows['Litres of Bioslurry produced'].sum(skipna=True) if 'Litres of Bioslurry produced' in data_rows.columns else "N/A",
@@ -1256,12 +1256,18 @@ def main_dashboard():
             "Tonnes of GHG/ CO2 Emissions abated": data_rows['Tons of GHG/ CO2 Emisions abated'].sum(skipna=True) if 'Tons of GHG/ CO2 Emisions abated' in data_rows.columns else "N/A",
             "Firewood Saved": data_rows['Firewood Saved'].sum(skipna=True) if 'Firewood Saved' in data_rows.columns else "N/A",
             "Total Women Impacted": data_rows['Total Women Impacted'].sum(skipna=True) if 'Total Women Impacted' in data_rows.columns else "N/A",
-            "Total Green Jobs Created": data_rows['Total Green Jobs Created'].sum(skipna=True) if 'Total Green Jobs Created' in data_rows.columns else "N/A"
+            "Total Green Jobs Created": data_rows['Total Green Jobs Created'].sum(skipna=True) if 'Total Green Jobs Created' in data_rows.columns else "N/A",
         }
-        st.markdown("### Impact Summaries (from Data Rows)")
+
+        st.markdown("### Impact Summaries (Matching Excel Green Table)")
         for k, v in impact_summaries.items():
-            v_int = int(v) if isinstance(v, (float, int)) and not pd.isna(v) else v
-            st.write(f"- **{k}:** {v_int}")
+            # Format value as integer where reasonable
+            try:
+                v_show = int(v) if pd.notnull(v) and float(v) == int(float(v)) else round(float(v),2)
+            except Exception:
+                v_show = v
+            st.write(f"- **{k}:** {v_show}")
+
 
 
 
