@@ -1241,8 +1241,13 @@ def main_dashboard():
             st.info(f"Found {len(filtered)} records matching all keywords.")
 
             
-        # Only consider actual data rows: filter for rows where "S. No." is a number
-        data_rows = impact_df[pd.to_numeric(impact_df['S. No. '], errors='coerce').notnull()]
+        
+
+        # Remove any whitespace from all column names upon loading!
+        impact_df.columns = impact_df.columns.str.strip()
+
+        # Only sum real data rows: where 'S. No.' is numeric (not NaN, not summary/footer)
+        data_rows = impact_df[pd.to_numeric(impact_df['S. No.'], errors='coerce').notnull()]
 
         impact_summaries = {
             "Clean Energy Produced": data_rows['Kwh produced YTD'].sum(skipna=True) if 'Kwh produced YTD' in data_rows.columns else "N/A",
@@ -1256,17 +1261,17 @@ def main_dashboard():
             "Tonnes of GHG/ CO2 Emissions abated": data_rows['Tons of GHG/ CO2 Emisions abated'].sum(skipna=True) if 'Tons of GHG/ CO2 Emisions abated' in data_rows.columns else "N/A",
             "Firewood Saved": data_rows['Firewood Saved'].sum(skipna=True) if 'Firewood Saved' in data_rows.columns else "N/A",
             "Total Women Impacted": data_rows['Total Women Impacted'].sum(skipna=True) if 'Total Women Impacted' in data_rows.columns else "N/A",
-            "Total Green Jobs Created": data_rows['Total Green Jobs Created'].sum(skipna=True) if 'Total Green Jobs Created' in data_rows.columns else "N/A",
+            "Total Green Jobs Created": data_rows['Total Green Jobs Created'].sum(skipna=True) if 'Total Green Jobs Created' in data_rows.columns else "N/A"
         }
 
-        st.markdown("### Impact Summaries (Matching Excel Green Table)")
+        st.markdown("### Impact Summaries (Data Rows Match Green Table)")
         for k, v in impact_summaries.items():
-            # Format value as integer where reasonable
-            try:
-                v_show = int(v) if pd.notnull(v) and float(v) == int(float(v)) else round(float(v),2)
-            except Exception:
-                v_show = v
-            st.write(f"- **{k}:** {v_show}")
+            # Format as integer if possible
+            if isinstance(v, float) or isinstance(v, int):
+                st.write(f"- **{k}:** {int(v):,}")
+            else:
+                st.write(f"- **{k}:** {v}")
+
 
 
 
