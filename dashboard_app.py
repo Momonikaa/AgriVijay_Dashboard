@@ -1245,6 +1245,7 @@ def main_dashboard():
 
         # Make sure column names are stripped and not altered
         impact_df.columns = impact_df.columns.str.strip()
+        st.write(f"How many rows actually summed: {len(data_rows)}")
 
         # Filter to only REAL DATA ROWS (where S. No. is numeric, non-null, not a summary/footer)
         data_rows = impact_df[pd.to_numeric(impact_df['S. No.'], errors='coerce').notnull()]
