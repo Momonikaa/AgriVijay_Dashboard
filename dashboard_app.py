@@ -1243,34 +1243,30 @@ def main_dashboard():
             
         
 
-        # Remove any whitespace from all column names upon loading!
+        # Make sure column names are stripped and not altered
         impact_df.columns = impact_df.columns.str.strip()
 
-        # Only sum real data rows: where 'S. No.' is numeric (not NaN, not summary/footer)
+        # Filter to only REAL DATA ROWS (where S. No. is numeric, non-null, not a summary/footer)
         data_rows = impact_df[pd.to_numeric(impact_df['S. No.'], errors='coerce').notnull()]
 
         impact_summaries = {
-            "Clean Energy Produced": data_rows['Kwh produced YTD'].sum(skipna=True) if 'Kwh produced YTD' in data_rows.columns else "N/A",
-            "Total Waste Treated": data_rows['Total Waste Treated (in kgs)'].sum(skipna=True) if 'Total Waste Treated (in kgs)' in data_rows.columns else "N/A",
-            "Bio - Slurry": data_rows['Litres of Bioslurry produced'].sum(skipna=True) if 'Litres of Bioslurry produced' in data_rows.columns else "N/A",
-            "Post Harvest Losses Mitigated": data_rows['Post Harvest Losses Mitigated (in kgs)'].sum(skipna=True) if 'Post Harvest Losses Mitigated (in kgs)' in data_rows.columns else "N/A",
-            "Increased Savings": data_rows['Total Increased Savings & Income(in Rs.)'].sum(skipna=True) if 'Total Increased Savings & Income(in Rs.)' in data_rows.columns else "N/A",
-            "Land Irrigated through Solar": data_rows['Total Acres of Land Irrigated through Solar'].sum(skipna=True) if 'Total Acres of Land Irrigated through Solar' in data_rows.columns else "N/A",
-            "No of Renewable & Green Energy Products Recommended & Installed": data_rows['No of Renewable & Green Energy Products Recommended & Installed'].sum(skipna=True) if 'No of Renewable & Green Energy Products Recommended & Installed' in data_rows.columns else "N/A",
-            "No of Lives Impacted": data_rows['No of Lives Impacted'].sum(skipna=True) if 'No of Lives Impacted' in data_rows.columns else "N/A",
-            "Tonnes of GHG/ CO2 Emissions abated": data_rows['Tons of GHG/ CO2 Emisions abated'].sum(skipna=True) if 'Tons of GHG/ CO2 Emisions abated' in data_rows.columns else "N/A",
-            "Firewood Saved": data_rows['Firewood Saved'].sum(skipna=True) if 'Firewood Saved' in data_rows.columns else "N/A",
-            "Total Women Impacted": data_rows['Total Women Impacted'].sum(skipna=True) if 'Total Women Impacted' in data_rows.columns else "N/A",
-            "Total Green Jobs Created": data_rows['Total Green Jobs Created'].sum(skipna=True) if 'Total Green Jobs Created' in data_rows.columns else "N/A"
+            "Clean Energy Produced": data_rows['Kwh produced YTD'].sum(skipna=True),
+            "Total Waste Treated": data_rows['Total Waste Treated (in kgs)'].sum(skipna=True),
+            "Bio - Slurry": data_rows['Litres of Bioslurry produced'].sum(skipna=True),
+            "Post Harvest Losses Mitigated": data_rows['Post Harvest Losses Mitigated (in kgs)'].sum(skipna=True),
+            "Increased Savings": data_rows['Total Increased Savings & Income(in Rs.)'].sum(skipna=True),
+            "Land Irrigated through Solar": data_rows['Total Acres of Land Irrigated through Solar'].sum(skipna=True),
+            "No of Renewable & Green Energy Products Recommended & Installed": data_rows['No of Renewable & Green Energy Products Recommended & Installed'].sum(skipna=True),
+            "No of Lives Impacted": data_rows['No of Lives Impacted'].sum(skipna=True),
+            "Tonnes of GHG/ CO2 Emissions abated": data_rows['Tons of GHG/ CO2 Emisions abated'].sum(skipna=True),
+            "Firewood Saved": data_rows['Firewood Saved'].sum(skipna=True),
+            "Total Women Impacted": data_rows['Total Women Impacted'].sum(skipna=True),
+            "Total Green Jobs Created": data_rows['Total Green Jobs Created'].sum(skipna=True)
         }
-
-        st.markdown("### Impact Summaries (Data Rows Match Green Table)")
+        st.markdown("### Impact Summaries (from Data Rows)")
         for k, v in impact_summaries.items():
-            # Format as integer if possible
-            if isinstance(v, float) or isinstance(v, int):
-                st.write(f"- **{k}:** {int(v):,}")
-            else:
-                st.write(f"- **{k}:** {v}")
+            # Format value as int if it's a whole number
+            st.write(f"- **{k}:** {int(v) if pd.notnull(v) and v == int(v) else v}")
 
 
 
