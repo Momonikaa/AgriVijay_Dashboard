@@ -1242,7 +1242,7 @@ def main_dashboard():
 
             
         # Only consider actual data rows: filter for rows where "S. No." is a number
-        data_rows = impact_df[pd.to_numeric(impact_df['S. No.'], errors='coerce').notnull()]
+        data_rows = impact_df[pd.to_numeric(impact_df['S. No. '], errors='coerce').notnull()]
 
         impact_summaries = {
             "Clean Energy Produced": data_rows['Kwh produced YTD'].sum(skipna=True) if 'Kwh produced YTD' in data_rows.columns else "N/A",
